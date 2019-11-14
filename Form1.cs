@@ -61,7 +61,6 @@ namespace SplineInterpolation
 
             // Вычисляем значение полинома в точке
             return Coef[i, 0] + Coef[i, 1] * (x - Nodes[i, 0]) + Coef[i, 2] * Math.Pow((x - Nodes[i, 0]), 2) + Coef[i, 3] * Math.Pow((x - Nodes[i, 0]), 3);
-
         }
 
         private void SplineInterpolation(double [,] Nodes)
@@ -117,16 +116,18 @@ namespace SplineInterpolation
             f[N - 1] = (Math.Pow(h[k - 1], 2) * delta[k - 2] + (2 * xn + h[k - 1]) * h[k - 2] * delta[k - 1]) / xn;
 
             /* Отладочный вывод трёхдиагональной */
-            for(int i = 0; i < 3; ++i)
+            Console.Write("\nTriDiagMatrix:\n");
+            for (int i = 0; i < 3; ++i)
             {
                 for(int j = 0; j < N - 1; ++j)
                 {
-                    Console.Write(TriDiagMatrix[i][j] + "\t");
+                    Console.Write("{0:f3}\t", TriDiagMatrix[i][j]);
                 }
                 Console.WriteLine();
             }
 
-            b = SolveTriDiag(TriDiagMatrix, f, N); // Вычисление коэффициента b
+            /* Вычисление коэффициента b */
+            b = SolveTriDiag(TriDiagMatrix, f, N); 
 
             /* Вычисление остальных коэффициентов через коэф. b */
             for (int j = 0; j < N - 1; j++)
@@ -141,10 +142,10 @@ namespace SplineInterpolation
             }
 
             /* Вывод: Итоговые коэффициенты */
-            Console.WriteLine();
+            Console.Write("\nCoef:\n");
             for (int i = 0; i < N - 1; ++i)
             {
-                Console.WriteLine("{0:f3}\t{1:f3}\t{2:f3}\t{3:f3}\n", Coef[i, 0], Coef[i, 1], Coef[i, 2], Coef[i, 3]);
+                Console.Write("{0:f3}\t{1:f3}\t{2:f3}\t{3:f3}\n", Coef[i, 0], Coef[i, 1], Coef[i, 2], Coef[i, 3]);
             }
 
             /* Вывод: Рисование узлов в чарте */
