@@ -21,79 +21,77 @@ namespace SplineInterpolation
             InitializeComponent();
         }
 
-        private double[] SolveTriDiag(double[][] TDM, double[] F, int N)
+        // Метод прогонки для решения трёхдиагональной матрицы
+        private double[] SolveTriDiag(double[][] TriDiagMatrix, double[] F, int N)
         {
-            double[] alph = new double[N - 1];
+            // Рассчётные коэффициенты
+            double[] alpha = new double[N - 1];
             double[] beta = new double[N - 1];
             double[] b = new double[N];
-            int i;
 
-            alph[0] = -TDM[2][0] / TDM[1][0];
-            beta[0] = F[0] / TDM[1][0];
+            // Начальные значения (по формулам)
+            alpha[0] = -TriDiagMatrix[2][0] / TriDiagMatrix[1][0];
+            beta[0] = F[0] / TriDiagMatrix[1][0];
 
-            for (i = 1; i < N - 1; i++)
+            // Прямая прогонка
+            for (int i = 1; i < N - 1; i++)
             {
-                alph[i] = -TDM[2][i] / (TDM[1][i] + TDM[0][i] * alph[i - 1]);
-                beta[i] = (F[i] - TDM[0][i] * beta[i - 1]) / (TDM[1][i] + TDM[0][i] * alph[i - 1]);
+                alpha[i] = -TriDiagMatrix[2][i] / (TriDiagMatrix[1][i] + TriDiagMatrix[0][i] * alpha[i - 1]);
+                beta[i] = (F[i] - TriDiagMatrix[0][i] * beta[i - 1]) / (TriDiagMatrix[1][i] + TriDiagMatrix[0][i] * alpha[i - 1]);
             }
-            b[N - 1] = (F[N - 1] - TDM[0][N - 1] * beta[N - 2]) / (TDM[1][N - 1] + TDM[0][N - 1] * alph[N - 2]);
+            b[N - 1] = (F[N - 1] - TriDiagMatrix[0][N - 1] * beta[N - 2]) / (TriDiagMatrix[1][N - 1] + TriDiagMatrix[0][N - 1] * alpha[N - 2]);
 
-            for (i = N - 2; i > -1; i--)
+            // Обратная прогонка
+            for (int i = N - 2; i > -1; i--)
             {
-                b[i] = b[i + 1] * alph[i] + beta[i];
+                b[i] = b[i + 1] * alpha[i] + beta[i];
             }
 
             return b;
         }
 
+        // Интерполяция в точке
         double Interpolate(double[,] Nodes, double[,] Coef, double x)
         {
+            // Определяем, между какими узлами лежит точка
             int i = 0;
             while (Nodes[i, 0] <= x)
-            {
                 i++;
-            }
             i--;
-            Console.WriteLine(i);
+
+            // Вычисляем значение полинома в точке
             return Coef[i, 0] + Coef[i, 1] * (x - Nodes[i, 0]) + Coef[i, 2] * Math.Pow((x - Nodes[i, 0]), 2) + Coef[i, 3] * Math.Pow((x - Nodes[i, 0]), 3);
 
         }
 
         private void SplineInterpolation(double [,] Nodes)
         {
-            int N = Nodes.GetLength(0);
+            int N = Nodes.GetLength(0); // Узлы
+            var Coef = new double[N - 1, 4]; // Итоговые коэффициенты
+
+            // Рассчётные коэффициенты
+            var a = new double[N - 1];
             var b = new double[N];
-            var Coef = new double[N - 1, 4];
+            var c = new double[N - 1];
+            var d = new double[N - 1];
+            var delta = new double[N - 1];
+            var h = new double[N - 1];
+            var f = new double[N];
+            double x3;
+            double xn;
 
-            double[] a = new double[N - 1];
-            double[] c = new double[N - 1];
-            double[] d = new double[N - 1];
-            double[] delta = new double[N - 1];
-            double[] h = new double[N - 1];
-            //C++ TO C# CONVERTER TODO TASK: C# does not have an equivalent to pointers to value types:
-            //ORIGINAL LINE: double** TriDiagMatrix = new double*[3];
-            double[][] TriDiagMatrix = new double[3][];
-
-            b = new double[N];
-
+            // Тридиагональная матрица
+            var TriDiagMatrix = new double[3][];
             TriDiagMatrix[0] = new double[N];
             TriDiagMatrix[1] = new double[N];
             TriDiagMatrix[2] = new double[N];
 
-            double[] f = new double[N];
-            double x3;
-            double xn;
-            int i;
-
-            if (N < 3)
-            {
-                //return -1;
-            }
-
+            // Начальное и конечное значения
             x3 = Nodes[2, 0] - Nodes[0, 0];
             xn = Nodes[N - 1, 0] - Nodes[N - 3, 0];
 
-            for (i = 0; i < N - 1; i++)
+            /* Заполнение трёхдиагональной матрицы */
+            for (int i = 0; i < N - 1; i++)
             {
                 a[i] = Nodes[i, 1];
                 h[i] = Nodes[i + 1, 0] - Nodes[i, 0];
@@ -104,7 +102,7 @@ namespace SplineInterpolation
 
             TriDiagMatrix[1][0] = h[0];
             TriDiagMatrix[2][0] = h[0];
-            for (i = 1; i < N - 1; i++)
+            for (int i = 1; i < N - 1; i++)
             {
                 TriDiagMatrix[1][i] = 2 * (h[i] + h[i - 1]);
                 TriDiagMatrix[2][i] = h[i];
@@ -114,11 +112,12 @@ namespace SplineInterpolation
             TriDiagMatrix[0][N - 1] = h[N - 2];
 
 
-            i = N - 1;
+            int k = N - 1;
             f[0] = ((h[0] + 2 * x3) * h[1] * delta[0] + Math.Pow(h[0], 2) * delta[1]) / x3;
-            f[N - 1] = (Math.Pow(h[i - 1], 2) * delta[i - 2] + (2 * xn + h[i - 1]) * h[i - 2] * delta[i - 1]) / xn;
+            f[N - 1] = (Math.Pow(h[k - 1], 2) * delta[k - 2] + (2 * xn + h[k - 1]) * h[k - 2] * delta[k - 1]) / xn;
 
-            for(i = 0; i < 3; ++i)
+            /* Отладочный вывод трёхдиагональной */
+            for(int i = 0; i < 3; ++i)
             {
                 for(int j = 0; j < N - 1; ++j)
                 {
@@ -127,8 +126,9 @@ namespace SplineInterpolation
                 Console.WriteLine();
             }
 
-            b = SolveTriDiag(TriDiagMatrix, f, N);
+            b = SolveTriDiag(TriDiagMatrix, f, N); // Вычисление коэффициента b
 
+            /* Вычисление остальных коэффициентов через коэф. b */
             for (int j = 0; j < N - 1; j++)
             {
                 d[j] = (b[j + 1] + b[j] - 2 * delta[j]) / (h[j] * h[j]);
@@ -140,18 +140,19 @@ namespace SplineInterpolation
                 Coef[j, 3] = d[j];
             }
 
+            /* Вывод: Итоговые коэффициенты */
             Console.WriteLine();
-            for (i = 0; i < N - 1; ++i)
+            for (int i = 0; i < N - 1; ++i)
             {
                 Console.WriteLine("{0:f3}\t{1:f3}\t{2:f3}\t{3:f3}\n", Coef[i, 0], Coef[i, 1], Coef[i, 2], Coef[i, 3]);
             }
 
-            /* Рисование узлов в чарте */
-            for (i = 0; i < N; ++i)
+            /* Вывод: Рисование узлов в чарте */
+            for (int i = 0; i < N; ++i)
             {
                 chart1.Series[0].Points.AddXY(Nodes[i, 0], Nodes[i, 1]);
             }
-
+            /* Вывод: Рисование сплайна в чарте */
             for (double x = Nodes[0, 0]; x <= Nodes[N - 1, 0]; x += 0.01) // От первого до последнего x в nodes
             {
                 chart1.Series[1].Points.AddXY(x, Interpolate(Nodes, Coef, x));
