@@ -21,122 +21,141 @@ namespace SplineInterpolation
             InitializeComponent();
         }
 
+        private double[] SolveTriDiag(double[][] TDM, double[] F, int N)
+        {
+            double[] alph = new double[N - 1];
+            double[] beta = new double[N - 1];
+            double[] b = new double[N];
+            int i;
+
+            alph[0] = -TDM[2][0] / TDM[1][0];
+            beta[0] = F[0] / TDM[1][0];
+
+            for (i = 1; i < N - 1; i++)
+            {
+                alph[i] = -TDM[2][i] / (TDM[1][i] + TDM[0][i] * alph[i - 1]);
+                beta[i] = (F[i] - TDM[0][i] * beta[i - 1]) / (TDM[1][i] + TDM[0][i] * alph[i - 1]);
+            }
+            b[N - 1] = (F[N - 1] - TDM[0][N - 1] * beta[N - 2]) / (TDM[1][N - 1] + TDM[0][N - 1] * alph[N - 2]);
+
+            for (i = N - 2; i > -1; i--)
+            {
+                b[i] = b[i + 1] * alph[i] + beta[i];
+            }
+
+            return b;
+        }
+
+        double Interpolate(double[,] Nodes, double[,] Coef, double x)
+        {
+            int i = 0;
+            while (Nodes[i, 0] <= x)
+            {
+                i++;
+            }
+            i--;
+            Console.WriteLine(i);
+            return Coef[i, 0] + Coef[i, 1] * (x - Nodes[i, 0]) + Coef[i, 2] * Math.Pow((x - Nodes[i, 0]), 2) + Coef[i, 3] * Math.Pow((x - Nodes[i, 0]), 3);
+
+        }
+
         private void SplineInterpolation(double [,] Nodes)
         {
             int N = Nodes.GetLength(0);
-            var b_vector = new double[N];
-            var c_vector = new double[N];
-            var d_vector = new double[N];
+            var b = new double[N];
+            var Coef = new double[N - 1, 4];
 
-            var x_vector = new double[N];
-            var delta_x = new double[N];
+            double[] a = new double[N - 1];
+            double[] c = new double[N - 1];
+            double[] d = new double[N - 1];
+            double[] delta = new double[N - 1];
+            double[] h = new double[N - 1];
+            //C++ TO C# CONVERTER TODO TASK: C# does not have an equivalent to pointers to value types:
+            //ORIGINAL LINE: double** TriDiagMatrix = new double*[3];
+            double[][] TriDiagMatrix = new double[3][];
 
-            var alpha_vector = new double[N];
-            var beta_vector = new double[N];
-            var gamma_vector = new double[N];
+            b = new double[N];
 
-            var a_matrix = new double[N, N]; // Тридиагональная матрица
-            var coefficient_matrix = new double[4][];
+            TriDiagMatrix[0] = new double[N];
+            TriDiagMatrix[1] = new double[N];
+            TriDiagMatrix[2] = new double[N];
 
-            for (int i = 0; i < 4; i++)
+            double[] f = new double[N];
+            double x3;
+            double xn;
+            int i;
+
+            if (N < 3)
             {
-                coefficient_matrix[i] = new double[N - 1];
+                //return -1;
             }
 
-            for (int i = 0; i + 1 <= N - 1; i++)
+            x3 = Nodes[2, 0] - Nodes[0, 0];
+            xn = Nodes[N - 1, 0] - Nodes[N - 3, 0];
+
+            for (i = 0; i < N - 1; i++)
             {
-                delta_x[i] = Nodes[i + 1, 0] - Nodes[i, 0];
-                if (delta_x[i] == 0.0)
+                a[i] = Nodes[i, 1];
+                h[i] = Nodes[i + 1, 0] - Nodes[i, 0];
+                delta[i] = (Nodes[i + 1, 1] - Nodes[i, 1]) / h[i];
+                TriDiagMatrix[0][i] = i > 0 ? h[i] : x3;
+                f[i] = i > 0 ? 3 * (h[i] * delta[i - 1] + h[i - 1] * delta[i]) : 0;
+            }
+
+            TriDiagMatrix[1][0] = h[0];
+            TriDiagMatrix[2][0] = h[0];
+            for (i = 1; i < N - 1; i++)
+            {
+                TriDiagMatrix[1][i] = 2 * (h[i] + h[i - 1]);
+                TriDiagMatrix[2][i] = h[i];
+            }
+            TriDiagMatrix[1][N - 1] = h[N - 2];
+            TriDiagMatrix[2][N - 1] = xn;
+            TriDiagMatrix[0][N - 1] = h[N - 2];
+
+
+            i = N - 1;
+            f[0] = ((h[0] + 2 * x3) * h[1] * delta[0] + Math.Pow(h[0], 2) * delta[1]) / x3;
+            f[N - 1] = (Math.Pow(h[i - 1], 2) * delta[i - 2] + (2 * xn + h[i - 1]) * h[i - 2] * delta[i - 1]) / xn;
+
+            for(i = 0; i < 3; ++i)
+            {
+                for(int j = 0; j < N - 1; ++j)
                 {
-                    //return null;
+                    Console.Write(TriDiagMatrix[i][j] + "\t");
                 }
-            }
-
-            // b[i] = 3 * ( (f[i] - f[i - 1])*delta_x[i]/delta_x[i - 1] + (f[i + 1] - f[i])*delta_x[i - 1]/delta_x[i] ),  i = 1, ... , N - 2
-            for (long i = 1; i + 1 <= N - 1; i++)
-            {
-                b_vector[i] = 3.0 * (delta_x[i] * ((Nodes[i, 1] - Nodes[i - 1, 1]) / delta_x[i - 1]) + delta_x[i - 1] * ((Nodes[i + 1, 1] - Nodes[i, 1]) / delta_x[i]));
-            }
-            b_vector[0] = ((delta_x[0] + 2.0 * (Nodes[2, 0] - Nodes[0, 0])) * delta_x[1] * ((Nodes[1, 1] - Nodes[0, 1]) / delta_x[0]) + Math.Pow(delta_x[0], 2.0) * ((Nodes[2, 1] - Nodes[1, 1]) / delta_x[1])) / (Nodes[2, 0] - Nodes[0, 0]);
-            b_vector[N - 1] = (Math.Pow(delta_x[N - 1 - 1], 2.0) * ((Nodes[N - 2, 1] - Nodes[N - 3, 1]) / delta_x[N - 1 - 2]) + (2.0 * (Nodes[N - 1, 0] - Nodes[N - 3, 0]) + delta_x[N - 1 - 1]) * delta_x[N - 1 - 2] * ((Nodes[N - 1, 1] - Nodes[N - 2, 1]) / delta_x[N - 1 - 1])) / (Nodes[N - 1, 0] - Nodes[N - 3, 0]);
-
-            // Коэффициенты матрицы
-            beta_vector[0] = delta_x[1];
-            gamma_vector[0] = Nodes[2, 0] - Nodes[0, 0];
-
-            beta_vector[N - 1] = delta_x[N - 1 - 1];
-            alpha_vector[N - 1] = (Nodes[N - 1, 0] - Nodes[N - 3, 0]);
-
-            for (int i = 1; i < N - 1; i++)
-            {
-                beta_vector[i] = 2.0 * (delta_x[i] + delta_x[i - 1]);
-                gamma_vector[i] = delta_x[i];
-                alpha_vector[i] = delta_x[i - 1];
-            }
-
-            // Формирование матрицы
-            for (int i = 0; i < N; ++i)
-            {
-                a_matrix[i, i] = beta_vector[i];
-                if (i >= 0 && i < N-1) { a_matrix[i + 1, i] = alpha_vector[i + 1]; }
-                if (i < N - 1) { a_matrix[i, i + 1] = gamma_vector[i]; }
-            }
-
-            for (int i = 0; i < N; i++)
-            {
-                Console.WriteLine(alpha_vector[i] + "  " + beta_vector[i] + " " + gamma_vector[i] + " | " + b_vector[i]);
-            }
-
-            Console.WriteLine("Linear System: ");
-            for (int i = 0; i < N; ++i)
-            {
-                for (int j = 0; j < N; ++j)
-                {
-                    Console.Write("{0:f3}\t", a_matrix[i, j]);
-                }
-                Console.Write("| {0:f3}", b_vector[i]);
                 Console.WriteLine();
             }
 
-            // Решение методом Гаусса
-            var xf_vector = new double[N];
-            var system = new LinearSystem(a_matrix, b_vector);
-            xf_vector = system.XVector;
-            Console.WriteLine("x_vector: ");
-            for (int k = 0; k < N; ++k)
+            b = SolveTriDiag(TriDiagMatrix, f, N);
+
+            for (int j = 0; j < N - 1; j++)
             {
-                Console.WriteLine(xf_vector[k]);
+                d[j] = (b[j + 1] + b[j] - 2 * delta[j]) / (h[j] * h[j]);
+                c[j] = 2 * (delta[j] - b[j]) / h[j] - (b[j + 1] - delta[j]) / h[j];
+
+                Coef[j, 0] = a[j];
+                Coef[j, 1] = b[j];
+                Coef[j, 2] = c[j];
+                Coef[j, 3] = d[j];
             }
 
-            // Нахождение других коэффициентов
-            for (int i = 0; i < N; ++i)
+            Console.WriteLine();
+            for (i = 0; i < N - 1; ++i)
             {
-                d_vector[i] = (b_vector[i + 1] + b_vector[i] - 2 * delta[i]) / (h[i] * h[i]);
-                c_vector[i] = 2 * (delta[i] - b_vector[i]) / h[i] - (b_vector[i + 1] - delta[j]) / h[i];
-            }
-            /*
-            double c = 0.0;
-            for (long i = 0; i < N - 1; i++)
-            {
-                c = beta_vector[i];
-                b[i] /= c;
-                beta_vector[i] /= c;
-                gamma_vector[i] /= c;
-
-                c = alpha_vector[i + 1];
-                b[i + 1] -= c * b[i];
-                alpha_vector[i + 1] -= c * beta_vector[i];
-                beta_vector[i + 1] -= c * gamma_vector[i];
+                Console.WriteLine("{0:f3}\t{1:f3}\t{2:f3}\t{3:f3}\n", Coef[i, 0], Coef[i, 1], Coef[i, 2], Coef[i, 3]);
             }
 
-            b[N - 1] /= beta_vector[N - 1];
-            beta_vector[N - 1] = 1.0;
-            for (long i = N - 2; i >= 0; i--)
+            /* Рисование узлов в чарте */
+            for (i = 0; i < N; ++i)
             {
-                c = gamma_vector[i];
-                b[i] -= c * b[i + 1];
-                gamma_vector[i] -= c * beta_vector[i];
-            }*/
+                chart1.Series[0].Points.AddXY(Nodes[i, 0], Nodes[i, 1]);
+            }
+
+            for (double x = Nodes[0, 0]; x <= Nodes[N - 1, 0]; x += 0.01) // От первого до последнего x в nodes
+            {
+                chart1.Series[1].Points.AddXY(x, Interpolate(Nodes, Coef, x));
+            }
         }
 
         private void Button1_Click(object sender, EventArgs e)
